@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--HEAD-->
+<title>Blame Others</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@700;900&display=swap">
+<style>
+/* Layout: one full-screen toy road; HUD floats in the corners, the face mirror hangs top-centre. */
+:root {
+  --sky: #ffc7dd;
+  --ink: #2b1b4a;
+  --paper: #fff6e0;
+  --rage: #ff3d57;
+  --sun: #ffd23f;
+  --mint: #7fe0b0;
+  --flesh: #ff9aa2;
+  --display: "Bowlby One", "Arial Black", Impact, sans-serif;
+  --body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--sky); color: var(--ink); font-family: var(--body); font-weight: 700; overflow: hidden; }
+#game { position: relative; height: 100%; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.chip { background: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); }
+
+#hud { position: absolute; top: 12px; left: max(16px, env(safe-area-inset-left, 0px)); width: min(30vw, 210px); padding: 8px 10px; display: grid; gap: 6px; }
+#hud .row { display: grid; gap: 2px; }
+#hud .lab { font-family: var(--display); font-size: 11px; letter-spacing: .08em; display: flex; justify-content: space-between; }
+.bar { height: 12px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--rage); }
+#lungs { background: #4cc9f0; }
+#count { font-family: var(--display); font-size: 15px; font-variant-numeric: tabular-nums; }
+
+#mirror { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: min(38vw, 300px); aspect-ratio: 2.3 / 1; border: 5px solid var(--ink); border-radius: 22px; box-shadow: 0 5px 0 var(--ink), inset 0 0 0 3px rgba(255,255,255,.55); pointer-events: none; }
+#mirror::before { content: ""; position: absolute; left: 50%; top: -17px; width: 14px; height: 14px; margin-left: -7px; background: var(--ink); border-radius: 4px 4px 0 0; }
+
+#mute { position: absolute; top: 12px; right: max(16px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; font: 20px/1 var(--body); color: var(--ink); cursor: pointer; padding: 0; }
+
+#banner { position: absolute; left: 50%; top: calc(12px + min(38vw, 300px) / 2.3 + 22px); transform: translateX(-50%) rotate(-2deg); max-width: 88vw; padding: 6px 16px; background: var(--sun); font-family: var(--display); font-size: clamp(15px, 3.4vw, 26px); text-align: center; text-wrap: balance; opacity: 0; transition: opacity .25s; pointer-events: none; }
+#banner.on { opacity: 1; }
+
+#tag { position: absolute; left: 0; top: 0; pointer-events: none; text-align: center; white-space: nowrap; }
+#tag .why { display: inline-block; padding: 3px 9px; background: var(--rage); color: #fff; border: 3px solid var(--ink); border-radius: 10px; font-family: var(--display); font-size: clamp(11px, 2.4vw, 15px); }
+#tag .bars { width: 110px; margin: 4px auto 0; display: grid; gap: 2px; }
+#tag .bar { height: 8px; }
+#tagTime { background: var(--ink); }
+#tagBlame { background: var(--sun); }
+#tag .hint { font-family: var(--display); font-size: 11px; color: var(--ink); text-shadow: 0 1px 0 #fff; }
+
+.yell { position: absolute; left: 0; top: 0; pointer-events: none; padding: 5px 11px; background: #fff; border: 3px solid var(--ink); border-radius: 16px 16px 16px 3px; font-family: var(--display); font-size: clamp(12px, 2.8vw, 20px); white-space: nowrap; animation: yell .95s ease-out forwards; }
+.yell.them { background: var(--mint); font-size: clamp(11px, 2.2vw, 15px); }
+@keyframes yell { 0% { opacity: 0; margin-top: 10px; scale: .5; } 15% { opacity: 1; scale: 1.1; } 70% { opacity: 1; scale: 1; } 100% { opacity: 0; margin-top: -40px; } }
+
+#touch { position: absolute; inset: auto 0 0 0; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: none; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+#touch button { pointer-events: auto; font-family: var(--display); color: var(--ink); touch-action: none; }
+#touch .steer { display: flex; gap: 10px; }
+#touch .steer button { width: 68px; height: 68px; font-size: 26px; }
+#bScream { width: 104px; height: 104px; border-radius: 50%; background: var(--rage); color: #fff; font-size: 17px; }
+#touch button.down { translate: 0 4px; box-shadow: 0 0 0 var(--ink); }
+@media (pointer: coarse) { #touch { display: flex; } }
+@media (max-width: 620px) {
+  #hud { width: 27vw; padding: 6px 8px; }
+  #count { font-size: 12px; }
+  #banner { top: 142px; }
+  #mirror { left: calc(max(16px, env(safe-area-inset-left, 0px)) + 27vw + 12px); right: calc(max(16px, env(safe-area-inset-right, 0px)) + 56px); width: auto; transform: none; }
+}
+
+.screen { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+#title { align-content: space-between; padding-top: 5vh; padding-bottom: 5vh; }
+#title h1 { justify-self: center; }
+.card { max-width: 560px; text-align: center; display: grid; gap: 12px; justify-items: center; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(44px, 12vw, 104px); line-height: .88; color: var(--paper); -webkit-text-stroke: 3px var(--ink); text-shadow: 0 6px 0 var(--ink); rotate: -3deg; text-wrap: balance; }
+h1 b { color: var(--rage); font-weight: 400; }
+.sub { margin: 0; padding: 6px 14px; font-size: clamp(14px, 3.2vw, 18px); font-weight: 900; }
+.how { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 13px; }
+.how li { padding: 4px 10px; }
+kbd { font-family: var(--display); font-size: 11px; }
+.go { padding: 12px 28px; background: var(--rage); color: #fff; font-family: var(--display); font-size: 22px; cursor: pointer; }
+.go:hover, .go:focus-visible { background: #ff5c72; outline: none; translate: 0 -2px; box-shadow: 0 6px 0 var(--ink); }
+#over .card { padding: 22px 22px 26px; }
+#over h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(26px, 6.5vw, 44px); line-height: 1; text-wrap: balance; }
+#report { margin: 0; display: grid; grid-template-columns: auto auto; gap: 4px 18px; text-align: left; font-size: 16px; }
+#report dt { font-weight: 700; }
+#report dd { margin: 0; font-family: var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+#verdict { margin: 0; font-weight: 900; }
+@media (prefers-reduced-motion: reduce) { .yell { animation-duration: .01s; } }
+</style>
+<!--/HEAD-->
+</head>
+<body>
+<!--BODY-->
+<div id="game">
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="chip" hidden>
+    <div class="row"><div class="lab"><span>RAGE</span></div><div class="bar"><i id="rage"></i></div></div>
+    <div class="row"><div class="lab"><span>LUNGS</span></div><div class="bar"><i id="lungs"></i></div></div>
+    <div id="count">BLAMED 0/10</div>
+  </div>
+  <div id="mirror" hidden></div>
+  <button id="mute" class="chip" type="button" aria-label="Toggle sound">🔊</button>
+  <div id="banner" class="chip"></div>
+  <div id="tag" hidden>
+    <div class="why" id="tagWhy"></div>
+    <div class="bars"><div class="bar"><i id="tagBlame"></i></div><div class="bar"><i id="tagTime"></i></div></div>
+    <div class="hint" id="tagHint"></div>
+  </div>
+  <div id="yells"></div>
+
+  <div id="touch" hidden>
+    <div class="steer">
+      <button id="bL" class="chip" type="button" aria-label="Steer left">◀</button>
+      <button id="bR" class="chip" type="button" aria-label="Steer right">▶</button>
+    </div>
+    <button id="bScream" class="chip" type="button">SCREAM</button>
+  </div>
+
+  <div id="title" class="screen">
+    <h1>BLAME <b>OTHERS</b></h1>
+    <div class="card">
+      <p class="sub chip">You drive perfectly. Everyone else is the problem.</p>
+      <ul class="how">
+        <li class="chip"><kbd>◀ ▶</kbd> steer</li>
+        <li class="chip"><kbd>SPACE</kbd> hold to scream</li>
+        <li class="chip"><kbd>▼</kbd> brake</li>
+        <li class="chip">Chase the culprit. Get close. Let them know.</li>
+      </ul>
+      <button id="start" class="go chip" type="button">Start driving</button>
+    </div>
+  </div>
+
+  <div id="over" class="screen" hidden>
+    <div class="card chip">
+      <h2 id="overTitle"></h2>
+      <dl id="report"></dl>
+      <p id="verdict"></p>
+      <button id="again" class="go chip" type="button">Drive again</button>
+    </div>
+  </div>
+</div>
+<script src="vendor/three.min.js"></script>
+<script src="src/game.js"></script>
+<!--/BODY-->
+</body>
+</html>
